@@ -15,12 +15,23 @@ class MainScene extends Phaser.Scene {
         this.load.image('enemy_supply_ship', 'assets/images/enemy-supply-ship.png');
         this.load.image('enemy_shot', 'assets/images/enemy-shot.png');
         
+        // Cargar sprites de elementos de curación
+        this.load.image('allied_spacedock', 'assets/images/allied-spacedock.png');
+        this.load.image('neutral_spacedoc', 'assets/images/neutral_spacedoc.png');
+        
         console.log('Assets cargados correctamente');
     }
 
     create() {
         // Fondo del juego
         this.add.rectangle(400, 300, 800, 600, 0x000000);
+
+        // Variables del juego
+        this.playerHP = 100;
+        this.maxPlayerHP = 100;
+        this.score = 0;
+        this.gameOver = false;
+        this.isInvulnerable = false;
 
         // Crear nave del jugador
         this.player = this.physics.add.sprite(100, 300, 'player_ship');
@@ -30,6 +41,7 @@ class MainScene extends Phaser.Scene {
         // Configurar controles de teclado
         this.cursors = this.input.keyboard.createCursorKeys();
         this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.restartKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
 
         // Grupo para los disparos del jugador
         this.playerBullets = this.physics.add.group({
@@ -45,15 +57,38 @@ class MainScene extends Phaser.Scene {
             defaultKey: 'enemy_shot',
             maxSize: 50
         });
+        
+        // Grupo para elementos de curación
+        this.healingItems = this.physics.add.group();
 
         // Configurar colisiones
-        this.physics.add.collider(this.playerBullets, this.enemies, this.bulletHitEnemy, null, this);
-        this.physics.add.collider(this.enemyBullets, this.player, this.enemyBulletHitPlayer, null, this);
+        this.physics.add.overlap(this.playerBullets, this.enemies, this.bulletHitEnemy, null, this);
+        // Desactivar overlap de bullets enemigos para evitar problemas de visibilidad
+        // Se usará verificación manual en update()
+        // this.physics.add.overlap(this.enemyBullets, this.player, this.enemyBulletHitPlayer, null, this);
+        this.physics.add.overlap(this.player, this.enemies, this.playerHitEnemy, null, this);
+        this.physics.add.overlap(this.player, this.healingItems, this.playerHitHealingItem, null, this);
 
         // Evento para spawnear enemigos
         this.time.addEvent({
             delay: 2000,
             callback: this.spawnEnemy,
+            callbackScope: this,
+            loop: true
+        });
+        
+        // Evento para spawnear allied spacedock (cada 1 minuto como máximo)
+        this.time.addEvent({
+            delay: 60000,
+            callback: this.spawnAlliedSpacedock,
+            callbackScope: this,
+            loop: true
+        });
+        
+        // Evento para spawnear neutral spacedoc (cada 3 minutos como máximo)
+        this.time.addEvent({
+            delay: 180000,
+            callback: this.spawnNeutralSpacedoc,
             callbackScope: this,
             loop: true
         });
@@ -65,19 +100,59 @@ class MainScene extends Phaser.Scene {
             fontFamily: 'Arial'
         }).setOrigin(0.5);
 
-        this.add.text(400, 570, 'Flechas: Mover | Espacio: Disparar', {
+        this.add.text(400, 570, 'Flechas: Mover | Espacio: Disparar | R: Reiniciar', {
             fontSize: '14px',
             fill: '#00ff00',
             fontFamily: 'Arial'
         }).setOrigin(0.5);
 
+        // Barra de vida del jugador
+        this.healthBarBackground = this.add.rectangle(20, 20, 200, 20, 0x333333);
+        this.healthBar = this.add.rectangle(20, 20, 200, 20, 0x00ff00);
+        this.healthBar.setOrigin(0, 0);
+        this.healthBarBackground.setOrigin(0, 0);
+
+        // Texto de puntuación
+        this.scoreText = this.add.text(780, 20, 'Score: 0', {
+            fontSize: '18px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
+        }).setOrigin(1, 0);
+
+        // Pantalla de Game Over (oculta inicialmente)
+        this.gameOverText = this.add.text(400, 300, 'GAME OVER', {
+            fontSize: '48px',
+            fill: '#ff0000',
+            fontFamily: 'Arial',
+            fontStyle: 'bold'
+        }).setOrigin(0.5).setVisible(false);
+
+        this.restartText = this.add.text(400, 360, 'Presiona R para reiniciar', {
+            fontSize: '24px',
+            fill: '#ffffff',
+            fontFamily: 'Arial'
+        }).setOrigin(0.5).setVisible(false);
+
         console.log('Juego inicializado correctamente');
     }
 
     update() {
-        // Verificar que el jugador existe y está activo
-        if (!this.player || !this.player.active || !this.player.body) {
+        // Verificar Game Over (primero para permitir reinicio)
+        if (this.gameOver) {
+            if (Phaser.Input.Keyboard.JustDown(this.restartKey)) {
+                this.restartGame();
+            }
             return;
+        }
+
+        // Verificar que el jugador existe (sin verificar body para evitar problemas)
+        if (!this.player) {
+            return;
+        }
+        
+        // Si el jugador no tiene cuerpo físico, recrearlo
+        if (!this.player.body) {
+            this.physics.world.enable(this.player);
         }
         
         // Movimiento del jugador
@@ -113,11 +188,38 @@ class MainScene extends Phaser.Scene {
             }
         });
 
-        // Actualizar disparos enemigos
+        // Actualizar disparos enemigos y verificar colisión con jugador
         this.enemyBullets.children.iterate((bullet) => {
             if (bullet && bullet.active) {
                 if (bullet.x < 0) {
                     bullet.destroy();
+                }
+                
+                // Verificación manual de colisión con jugador
+                if (this.player && this.player.active && !this.isInvulnerable) {
+                    const distance = Phaser.Math.Distance.Between(bullet.x, bullet.y, this.player.x, this.player.y);
+                    if (distance < 30) {
+                        // Colisión detectada
+                        bullet.destroy();
+                        
+                        // Aplicar daño
+                        const damage = 10;
+                        this.playerHP -= damage;
+                        console.log('Jugador golpeado por bullet - HP restante:', this.playerHP);
+                        this.updateHealthBar();
+                        
+                        // Activar invulnerabilidad temporal
+                        this.isInvulnerable = true;
+                        this.time.delayedCall(500, () => {
+                            this.isInvulnerable = false;
+                        });
+                        
+                        if (this.playerHP <= 0) {
+                            console.log('Game Over por bullet - HP:', this.playerHP);
+                            this.gameOver = true;
+                            this.showGameOver();
+                        }
+                    }
                 }
             }
         });
@@ -139,10 +241,20 @@ class MainScene extends Phaser.Scene {
                 }
             }
         });
+        
+        // Actualizar elementos de curación
+        this.healingItems.children.iterate((item) => {
+            if (item && item.active) {
+                // Eliminar elementos que salen de la pantalla
+                if (item.x < -50) {
+                    item.destroy();
+                }
+            }
+        });
     }
 
     fireBullet() {
-        if (!this.player || !this.player.active) {
+        if (!this.player) {
             return;
         }
         
@@ -170,27 +282,47 @@ class MainScene extends Phaser.Scene {
                 enemy = this.enemies.create(850, y, 'enemy_battlecruiser');
                 speed = 80;
                 canShoot = true;
-                shootInterval = 1500;
+                shootInterval = 2700;
                 enemy.movementPattern = 'sine';
-                enemy.amplitude = 50;
-                enemy.frequency = 0.002;
+                enemy.amplitude = 90;
+                enemy.frequency = 0.005;
                 enemy.initialY = y;
                 enemy.timeAlive = 0;
+                enemy.hp = 3;
+                enemy.maxHp = 3;
+                enemy.damage = 25;
+                enemy.scoreValue = 300;
+                enemy.enemyType = 'battlecruiser';
                 break;
             case 'frigate':
                 enemy = this.enemies.create(850, y, 'enemy_frigate');
                 speed = 120;
                 canShoot = true;
-                shootInterval = 2000;
+                shootInterval = 2200;
                 enemy.movementPattern = 'zigzag';
                 enemy.zigzagTimer = 0;
                 enemy.zigzagDirection = 1;
+                enemy.zigzagSpeed = 100;
+                enemy.hp = 2;
+                enemy.maxHp = 2;
+                enemy.damage = 15;
+                enemy.scoreValue = 200;
+                enemy.enemyType = 'frigate';
                 break;
             case 'supply_ship':
                 enemy = this.enemies.create(850, y, 'enemy_supply_ship');
-                speed = 60;
+                speed = 300;
                 canShoot = false;
-                enemy.movementPattern = 'straight';
+                enemy.movementPattern = 'circular';
+                enemy.circleRadius = 30;
+                enemy.circleSpeed = 0.003;
+                enemy.initialY = y;
+                enemy.timeAlive = 0;
+                enemy.hp = 1;
+                enemy.maxHp = 1;
+                enemy.damage = 10;
+                enemy.scoreValue = 100;
+                enemy.enemyType = 'supply_ship';
                 break;
         }
         
@@ -199,6 +331,38 @@ class MainScene extends Phaser.Scene {
         enemy.canShoot = canShoot;
         enemy.shootInterval = shootInterval;
         enemy.lastShot = 0;
+    }
+
+    spawnAlliedSpacedock() {
+        // Solo spawnear si hay menos de 2 en pantalla
+        if (this.healingItems.getChildren().length >= 2) {
+            return;
+        }
+        
+        const y = Phaser.Math.Between(50, 550);
+        const spacedock = this.healingItems.create(850, y, 'allied_spacedock');
+        spacedock.setScale(0.3);
+        spacedock.setVelocityX(-50);
+        spacedock.healAmount = 10;
+        spacedock.healingType = 'allied';
+        spacedock.bonusUsed = false;
+        console.log('Allied Spacedock spawn');
+    }
+
+    spawnNeutralSpacedoc() {
+        // Solo spawnear si hay menos de 1 en pantalla
+        if (this.healingItems.getChildren().length >= 1) {
+            return;
+        }
+        
+        const y = Phaser.Math.Between(50, 550);
+        const spacedoc = this.healingItems.create(850, y, 'neutral_spacedoc');
+        spacedoc.setScale(0.3);
+        spacedoc.setVelocityX(-50);
+        spacedoc.healAmount = 50;
+        spacedoc.healingType = 'neutral';
+        spacedoc.bonusUsed = false;
+        console.log('Neutral Spacedoc spawn');
     }
 
     updateEnemyMovement(enemy) {
@@ -211,22 +375,23 @@ class MainScene extends Phaser.Scene {
         
         switch(enemy.movementPattern) {
             case 'sine':
-                // Movimiento en onda senoidal
+                // Movimiento en onda senoidal más pronunciado
                 const sineY = enemy.initialY + Math.sin(enemy.timeAlive * enemy.frequency) * enemy.amplitude;
-                enemy.setVelocityY((sineY - enemy.y) * 0.1);
+                enemy.setVelocityY((sineY - enemy.y) * 0.2);
                 break;
             case 'zigzag':
-                // Movimiento en zigzag
+                // Movimiento en zigzag más rápido
                 enemy.zigzagTimer = (enemy.zigzagTimer || 0) + 16;
-                if (enemy.zigzagTimer > 500) {
+                if (enemy.zigzagTimer > 300) {
                     enemy.zigzagDirection *= -1;
                     enemy.zigzagTimer = 0;
                 }
-                enemy.setVelocityY(enemy.zigzagDirection * 60);
+                enemy.setVelocityY(enemy.zigzagDirection * (enemy.zigzagSpeed || 100));
                 break;
-            case 'straight':
-                // Movimiento recto
-                enemy.setVelocityY(0);
+            case 'circular':
+                // Movimiento circular
+                const circleY = enemy.initialY + Math.sin(enemy.timeAlive * enemy.circleSpeed) * enemy.circleRadius;
+                enemy.setVelocityY((circleY - enemy.y) * 0.15);
                 break;
         }
     }
@@ -251,13 +416,192 @@ class MainScene extends Phaser.Scene {
 
     bulletHitEnemy(bullet, enemy) {
         bullet.destroy();
-        enemy.destroy();
+        enemy.hp -= 1;
+        
+        // Efecto visual de golpe
+        enemy.setTint(0xff0000);
+        this.time.delayedCall(100, () => {
+            if (enemy.active) {
+                enemy.clearTint();
+            }
+        });
+        
+        if (enemy.hp <= 0) {
+            this.score += enemy.scoreValue;
+            this.updateScore();
+            enemy.destroy();
+        }
     }
 
     enemyBulletHitPlayer(bullet, player) {
-        bullet.destroy();
-        // Aquí se podría añadir lógica de daño al jugador
-        console.log('Jugador golpeado');
+        // Destruir el bullet pero NO afectar al jugador
+        if (bullet) {
+            bullet.destroy();
+        }
+        
+        if (this.isInvulnerable) {
+            return;
+        }
+        
+        // Daño fijo por disparo enemigo (10 puntos)
+        const damage = 10;
+        
+        this.playerHP -= damage;
+        console.log('Jugador golpeado - HP restante:', this.playerHP);
+        this.updateHealthBar();
+        
+        // Activar invulnerabilidad temporal
+        this.isInvulnerable = true;
+        
+        // Desactivar invulnerabilidad después de 500ms
+        this.time.delayedCall(500, () => {
+            this.isInvulnerable = false;
+        });
+        
+        // Solo mostrar Game Over si HP es 0 o menor
+        if (this.playerHP <= 0) {
+            console.log('Game Over - HP:', this.playerHP);
+            this.gameOver = true;
+            this.showGameOver();
+        }
+    }
+
+    playerHitEnemy(player, enemy) {
+        if (this.isInvulnerable) {
+            return;
+        }
+        
+        // Daño por colisión directa con enemigo (20 puntos)
+        const damage = 20;
+        
+        this.playerHP -= damage;
+        console.log('Jugador colisionó con enemigo - HP restante:', this.playerHP);
+        this.updateHealthBar();
+        
+        // Activar invulnerabilidad temporal
+        this.isInvulnerable = true;
+        
+        // Desactivar invulnerabilidad después de 500ms
+        this.time.delayedCall(500, () => {
+            this.isInvulnerable = false;
+        });
+        
+        // El enemigo también recibe daño
+        enemy.hp -= 1;
+        enemy.setTint(0xff0000);
+        this.time.delayedCall(100, () => {
+            if (enemy.active) {
+                enemy.clearTint();
+            }
+        });
+        
+        if (enemy.hp <= 0) {
+            this.score += enemy.scoreValue;
+            this.updateScore();
+            enemy.destroy();
+        }
+        
+        if (this.playerHP <= 0) {
+            console.log('Game Over por colisión - HP:', this.playerHP);
+            this.gameOver = true;
+            this.showGameOver();
+        }
+    }
+
+    playerHitHealingItem(player, item) {
+        // Solo aplicar curación si el bono no ha sido usado
+        if (item.bonusUsed) {
+            return;
+        }
+        
+        // Marcar el bono como usado
+        item.bonusUsed = true;
+        
+        // Aplicar curación
+        const healAmount = item.healAmount;
+        this.playerHP = Math.min(this.playerHP + healAmount, this.maxPlayerHP);
+        console.log('Jugador curado - HP:', this.playerHP, '+', healAmount);
+        this.updateHealthBar();
+        
+        // Efecto visual de curación
+        player.setTint(0x00ff00);
+        this.time.delayedCall(200, () => {
+            if (player) {
+                player.clearTint();
+            }
+        });
+    }
+
+    getEnemyDamage(enemyType) {
+        switch(enemyType) {
+            case 'battlecruiser': return 25;
+            case 'frigate': return 15;
+            case 'supply_ship': return 10;
+            default: return 10;
+        }
+    }
+
+    updateHealthBar() {
+        const healthPercent = Math.max(0, this.playerHP / this.maxPlayerHP);
+        this.healthBar.width = 200 * healthPercent;
+        
+        // Cambiar color según salud
+        if (healthPercent > 0.5) {
+            this.healthBar.fillColor = 0x00ff00;
+        } else if (healthPercent > 0.25) {
+            this.healthBar.fillColor = 0xffff00;
+        } else {
+            this.healthBar.fillColor = 0xff0000;
+        }
+    }
+
+    updateScore() {
+        this.scoreText.setText('Score: ' + this.score);
+    }
+
+    showGameOver() {
+        console.log('showGameOver llamado - HP:', this.playerHP);
+        this.gameOverText.setVisible(true);
+        this.restartText.setVisible(true);
+        if (this.player) {
+            this.player.setActive(false);
+            this.player.setVisible(false);
+        }
+    }
+
+    restartGame() {
+        console.log('restartGame llamado');
+        // Reiniciar variables
+        this.playerHP = 100;
+        this.score = 0;
+        this.gameOver = false;
+        this.isInvulnerable = false;
+        
+        // Reiniciar jugador
+        if (this.player) {
+            this.player.setPosition(100, 300);
+            this.player.setActive(true);
+            this.player.setVisible(true);
+            this.player.clearTint();
+            // Asegurar que el cuerpo físico esté activo
+            if (!this.player.body) {
+                this.physics.world.enable(this.player);
+            }
+        }
+        
+        // Destruir todos los enemigos y disparos
+        this.enemies.clear(true, true);
+        this.playerBullets.clear(true, true);
+        this.enemyBullets.clear(true, true);
+        this.healingItems.clear(true, true);
+        
+        // Actualizar UI
+        this.updateHealthBar();
+        this.updateScore();
+        
+        // Ocultar pantalla de Game Over
+        this.gameOverText.setVisible(false);
+        this.restartText.setVisible(false);
     }
 }
 
