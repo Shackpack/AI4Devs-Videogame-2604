@@ -85,3 +85,42 @@ Para WinTrek específicamente, Phaser.js es la mejor opción porque:
 - Menor tiempo de desarrollo comparado con PixiJS vanilla
 
 ---
+
+### Prompt 5
+**Usuario**: Eres un desarrollador de videojuegos experto. Tu tarea es configurar la estructura para el juego wintrek definido en @[wintrek-ABB/wintrek_definicion.md]  utilizando Phaser 3 para HTML5. 
+No quiero escribir ni una línea de código yo mismo, así que por favor encárgate de crear todos los archivos y configuraciones necesarias.
+
+Primero, crea la siguiente estructura del proyecto:
+
+Código
+mario-clone/
+│── index.html
+│── main.js
+│── assets/
+│    │── images/
+│    │── audio/
+Ejecuta los comandos necesarios usando Python para crear estos directorios y archivos. Una vez creada la estructura, rellena index.html y main.js y verifica que Phaser esté añadido correctamente.
+
+**Respuesta**: 
+He creado la estructura completa del proyecto WinTrek con Phaser 3:
+
+**Directorios creados** (usando Python):
+- `wintrek-ABB/assets/images/`
+- `wintrek-ABB/assets/audio/`
+
+**Archivos creados**:
+- `index.html`: Contiene la estructura HTML básica con Phaser 3 CDN (v3.60.0), estilos CSS para centrar el juego, y referencias a main.js
+- `main.js`: Configuración básica de Phaser 3 con:
+  - Resolución 1024x768
+  - Fondo negro
+  - Escena con funciones preload, create y update
+  - Texto de prueba "WinTrek - Phaser 3" para verificar funcionamiento
+
+**Verificación**:
+- Servidor HTTP iniciado en puerto 8000
+- Browser preview disponible en http://localhost:8000
+- Phaser 3 cargado correctamente desde CDN
+
+El proyecto está listo para comenzar el desarrollo del juego WinTrek.
+
+---
