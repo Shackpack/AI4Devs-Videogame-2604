@@ -19,6 +19,12 @@ class MainScene extends Phaser.Scene {
         this.load.image('allied_spacedock', 'assets/images/allied-spacedock.png');
         this.load.image('neutral_spacedoc', 'assets/images/neutral_spacedoc.png');
         
+        // Cargar efectos de sonido
+        this.load.audio('laser_shot', 'assets/audio/chakong-laser-gun-shot-sound-future-sci-fi-lazer-wobble-chakongaudio-174883.mp3');
+        
+        // Cargar música de fondo
+        this.load.audio('background_music', 'assets/audio/solarflex-space-541545.mp3');
+        
         console.log('Assets cargados correctamente');
     }
 
@@ -132,6 +138,13 @@ class MainScene extends Phaser.Scene {
             fill: '#ffffff',
             fontFamily: 'Arial'
         }).setOrigin(0.5).setVisible(false);
+
+        // Iniciar música de fondo
+        this.backgroundMusic = this.sound.add('background_music');
+        this.backgroundMusic.play({
+            volume: 0.3,
+            loop: true
+        });
 
         console.log('Juego inicializado correctamente');
     }
@@ -264,6 +277,9 @@ class MainScene extends Phaser.Scene {
             bullet.setVisible(true);
             bullet.setVelocityX(300);
             bullet.setScale(0.3);
+            
+            // Reproducir efecto de sonido de disparo
+            this.sound.play('laser_shot');
         }
     }
 
@@ -567,6 +583,11 @@ class MainScene extends Phaser.Scene {
             this.player.setActive(false);
             this.player.setVisible(false);
         }
+        
+        // Detener música de fondo
+        if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+        }
     }
 
     restartGame() {
@@ -576,6 +597,15 @@ class MainScene extends Phaser.Scene {
         this.score = 0;
         this.gameOver = false;
         this.isInvulnerable = false;
+        
+        // Reiniciar música de fondo
+        if (this.backgroundMusic) {
+            this.backgroundMusic.stop();
+            this.backgroundMusic.play({
+                volume: 0.3,
+                loop: true
+            });
+        }
         
         // Reiniciar jugador
         if (this.player) {
