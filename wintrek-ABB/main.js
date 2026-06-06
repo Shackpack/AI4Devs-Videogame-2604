@@ -15,21 +15,382 @@ const config = {
 // Inicializar el juego
 const game = new Phaser.Game(config);
 
+// Sistema de gestión de ventanas
+let windows = {};
+
+// Estado del juego
+const gameState = {
+    stardate: 3254.7,
+    quadrant: { x: 5, y: 3 },
+    sector: { x: 3, y: 3 }, // Posición inicial en el centro del grid 8x8
+    dilithium: 1000,
+    shields: 100,
+    photonTorpedoes: 10,
+    shipStatus: 'green', // green, yellow, red
+    remainingEnemies: 15
+};
+
+// Configuración del grid
+const GRID_SIZE = 8;
+const CELL_SIZE = 35;
+const GRID_OFFSET_X = 10;
+const GRID_OFFSET_Y = 40;
+
+// Referencias a objetos del juego
+let shipSprite = null;
+let navigationDirection = 0;
+let navigationDistance = 1;
+
+// Definición de las áreas de ventanas
+const windowDefinitions = {
+    navigation: { id: 'navigation', title: 'Navegación', x: 10, y: 10, width: 300, height: 200, color: 0x1a1a2e },
+    computer: { id: 'computer', title: 'Computador', x: 320, y: 10, width: 350, height: 200, color: 0x16213e },
+    shipStatus: { id: 'shipStatus', title: 'Estado de la Nave', x: 680, y: 10, width: 334, height: 200, color: 0x0f3460 },
+    shieldStatus: { id: 'shieldStatus', title: 'Estado de Escudos', x: 10, y: 220, width: 300, height: 180, color: 0x1a1a2e },
+    proximityScanner: { id: 'proximityScanner', title: 'Escanner de Proximidad', x: 320, y: 220, width: 350, height: 180, color: 0x16213e },
+    longRangeScanner: { id: 'longRangeScanner', title: 'Escanner de Largo Alcance', x: 680, y: 220, width: 334, height: 180, color: 0x0f3460 },
+    messages: { id: 'messages', title: 'Mensajes', x: 10, y: 410, width: 400, height: 150, color: 0x1a1a2e },
+    torpedoControl: { id: 'torpedoControl', title: 'Control de Torpedos', x: 420, y: 410, width: 250, height: 150, color: 0x16213e },
+    phaserControl: { id: 'phaserControl', title: 'Control de Phasers', x: 680, y: 410, width: 334, height: 150, color: 0x0f3460 },
+    damageReport: { id: 'damageReport', title: 'Informe de Daños', x: 10, y: 570, width: 500, height: 188, color: 0x1a1a2e }
+};
+
 function preload() {
-    // Cargar assets aquí cuando estén disponibles
+    // Cargar assets
     console.log('WinTrek: Cargando assets...');
+    this.load.image('player_ship', 'assets/images/player_ship.png');
 }
 
 function create() {
     // Configuración inicial del juego
     console.log('WinTrek: Juego inicializado');
     
-    // Texto de prueba para verificar que Phaser funciona
-    this.add.text(512, 384, 'WinTrek - Phaser 3', {
-        fontSize: '32px',
+    // Crear todas las ventanas
+    createAllWindows.call(this);
+}
+
+function createAllWindows() {
+    // Iterar sobre todas las definiciones de ventanas
+    Object.values(windowDefinitions).forEach(def => {
+        createWindow.call(this, def);
+    });
+}
+
+function createWindow(def) {
+    // Crear contenedor para la ventana
+    const windowContainer = this.add.container(def.x, def.y);
+    
+    // Fondo de la ventana
+    const background = this.add.rectangle(0, 0, def.width, def.height, def.color)
+        .setStrokeStyle(2, 0x00ff00)
+        .setOrigin(0, 0);
+    
+    // Barra de título
+    const titleBar = this.add.rectangle(0, 0, def.width, 25, 0x003300)
+        .setStrokeStyle(1, 0x00ff00)
+        .setOrigin(0, 0);
+    
+    // Texto del título
+    const titleText = this.add.text(def.width / 2, 12, def.title, {
+        fontSize: '14px',
+        fill: '#00ff00',
+        fontFamily: 'Arial',
+        fontStyle: 'bold'
+    }).setOrigin(0.5);
+    
+    // Contenido de la ventana
+    let contentElements = [];
+    if (def.id === 'shipStatus') {
+        const contentText = createShipStatusContent.call(this, def.width);
+        contentElements.push(contentText);
+    } else if (def.id === 'proximityScanner') {
+        const gridElements = createProximityScannerGrid.call(this);
+        contentElements.push(...gridElements);
+    } else if (def.id === 'navigation') {
+        const navElements = createNavigationControls.call(this);
+        contentElements.push(...navElements);
+    } else {
+        const contentText = this.add.text(10, 40, `[${def.title}]\nÁrea de contenido`, {
+            fontSize: '12px',
+            fill: '#00ff00',
+            fontFamily: 'Arial',
+            lineSpacing: 5
+        });
+        contentElements.push(contentText);
+    }
+    
+    // Agregar elementos al contenedor
+    windowContainer.add([background, titleBar, titleText, ...contentElements]);
+    
+    // Guardar referencia a la ventana
+    windows[def.id] = {
+        container: windowContainer,
+        definition: def,
+        contentElements: contentElements
+    };
+}
+
+function createShipStatusContent(windowWidth) {
+    const statusColor = getShipStatusColor(gameState.shipStatus);
+    
+    const content = this.add.text(10, 40, '', {
+        fontSize: '11px',
+        fill: '#00ff00',
+        fontFamily: 'Arial',
+        lineSpacing: 4
+    });
+    
+    updateShipStatusText(content, statusColor);
+    return content;
+}
+
+function getShipStatusColor(status) {
+    switch(status) {
+        case 'red': return '#ff0000';
+        case 'yellow': return '#ffff00';
+        case 'green': return '#00ff00';
+        default: return '#00ff00';
+    }
+}
+
+function updateShipStatusText(content, statusColor) {
+    content.setText([
+        `Fecha Estelar: ${gameState.stardate.toFixed(1)}`,
+        `Cuadrante: [${gameState.quadrant.x}, ${gameState.quadrant.y}]`,
+        `Sector: [${gameState.sector.x}, ${gameState.sector.y}]`,
+        `Dilitio: ${gameState.dilithium} unidades`,
+        `Escudos: ${gameState.shields}%`,
+        `Torpedos de Fotones: ${gameState.photonTorpedoes}`,
+        `Estado: ${getStatusText(gameState.shipStatus)}`,
+        `Enemigos Restantes: ${gameState.remainingEnemies}`
+    ]);
+}
+
+function getStatusText(status) {
+    switch(status) {
+        case 'red': return 'CRÍTICO';
+        case 'yellow': return 'ADVERTENCIA';
+        case 'green': return 'NORMAL';
+        default: return 'NORMAL';
+    }
+}
+
+function createProximityScannerGrid() {
+    const elements = [];
+    
+    // Crear grid 8x8
+    for (let x = 0; x < GRID_SIZE; x++) {
+        for (let y = 0; y < GRID_SIZE; y++) {
+            const cellX = GRID_OFFSET_X + x * CELL_SIZE;
+            const cellY = GRID_OFFSET_Y + y * CELL_SIZE;
+            
+            const cell = this.add.rectangle(cellX, cellY, CELL_SIZE - 2, CELL_SIZE - 2, 0x000000)
+                .setStrokeStyle(1, 0x003300)
+                .setOrigin(0, 0);
+            
+            elements.push(cell);
+        }
+    }
+    
+    // Crear sprite de la nave en la posición actual
+    const shipX = GRID_OFFSET_X + gameState.sector.x * CELL_SIZE + CELL_SIZE / 2;
+    const shipY = GRID_OFFSET_Y + gameState.sector.y * CELL_SIZE + CELL_SIZE / 2;
+    
+    shipSprite = this.add.image(shipX, shipY, 'player_ship')
+        .setScale(0.8)
+        .setOrigin(0.5);
+    
+    elements.push(shipSprite);
+    
+    return elements;
+}
+
+function createNavigationControls() {
+    const elements = [];
+    
+    // Texto de instrucciones
+    const instructions = this.add.text(10, 40, 'NAVEGACIÓN', {
+        fontSize: '12px',
+        fill: '#00ff00',
+        fontFamily: 'Arial',
+        fontStyle: 'bold'
+    });
+    elements.push(instructions);
+    
+    // Dirección
+    const dirLabel = this.add.text(10, 65, 'Dirección (grados):', {
+        fontSize: '10px',
         fill: '#00ff00',
         fontFamily: 'Arial'
+    });
+    elements.push(dirLabel);
+    
+    const dirOptions = '0, 45, 90, 135, 180, 225, 270, 315';
+    const dirText = this.add.text(10, 80, dirOptions, {
+        fontSize: '9px',
+        fill: '#00aa00',
+        fontFamily: 'Arial'
+    });
+    elements.push(dirText);
+    
+    const dirValue = this.add.text(10, 95, 'Actual: 0°', {
+        fontSize: '10px',
+        fill: '#ffff00',
+        fontFamily: 'Arial'
+    });
+    elements.push(dirValue);
+    
+    // Botones para cambiar dirección
+    const dirButtons = [];
+    const dirValues = [0, 45, 90, 135, 180, 225, 270, 315];
+    let btnX = 10;
+    let btnY = 105;
+    
+    dirValues.forEach((deg, index) => {
+        if (index > 0 && index % 4 === 0) {
+            btnX = 10;
+            btnY += 12;
+        }
+        
+        const btn = this.add.rectangle(btnX, btnY, 28, 10, 0x002200)
+            .setStrokeStyle(1, 0x00ff00)
+            .setOrigin(0, 0)
+            .setInteractive({ useHandCursor: true });
+        
+        const btnText = this.add.text(btnX + 14, btnY + 5, `${deg}°`, {
+            fontSize: '8px',
+            fill: '#00ff00',
+            fontFamily: 'Arial'
+        }).setOrigin(0.5);
+        
+        btn.on('pointerdown', () => {
+            navigationDirection = deg;
+            dirValue.setText(`Actual: ${deg}°`);
+        });
+        
+        elements.push(btn, btnText);
+        dirButtons.push(btn);
+        btnX += 32;
+    });
+    
+    // Distancia
+    const distLabel = this.add.text(10, 115, 'Distancia (casillas):', {
+        fontSize: '10px',
+        fill: '#00ff00',
+        fontFamily: 'Arial'
+    });
+    elements.push(distLabel);
+    
+    const distValue = this.add.text(10, 130, 'Actual: 1', {
+        fontSize: '10px',
+        fill: '#ffff00',
+        fontFamily: 'Arial'
+    });
+    elements.push(distValue);
+    
+    // Botones para cambiar distancia
+    const distButtons = [];
+    const distValues = [1, 2, 3, 4, 5, 6, 7];
+    let distBtnX = 10;
+    let distBtnY = 140;
+    
+    distValues.forEach((dist, index) => {
+        if (index > 0 && index % 4 === 0) {
+            distBtnX = 10;
+            distBtnY += 12;
+        }
+        
+        const btn = this.add.rectangle(distBtnX, distBtnY, 28, 10, 0x002200)
+            .setStrokeStyle(1, 0x00ff00)
+            .setOrigin(0, 0)
+            .setInteractive({ useHandCursor: true });
+        
+        const btnText = this.add.text(distBtnX + 14, distBtnY + 5, `${dist}`, {
+            fontSize: '8px',
+            fill: '#00ff00',
+            fontFamily: 'Arial'
+        }).setOrigin(0.5);
+        
+        btn.on('pointerdown', () => {
+            navigationDistance = dist;
+            distValue.setText(`Actual: ${dist}`);
+        });
+        
+        elements.push(btn, btnText);
+        distButtons.push(btn);
+        distBtnX += 32;
+    });
+    
+    // Botón de mover
+    const moveButton = this.add.rectangle(10, 175, 80, 25, 0x003300)
+        .setStrokeStyle(1, 0x00ff00)
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+    
+    const moveText = this.add.text(50, 187, 'MOVER', {
+        fontSize: '11px',
+        fill: '#00ff00',
+        fontFamily: 'Arial',
+        fontStyle: 'bold'
     }).setOrigin(0.5);
+    
+    elements.push(moveButton, moveText);
+    
+    // Evento del botón
+    moveButton.on('pointerdown', () => {
+        moveShip();
+    });
+    
+    return elements;
+}
+
+function moveShip() {
+    const directions = {
+        0: { dx: 0, dy: -1 },      // Norte
+        45: { dx: 1, dy: -1 },     // Noreste
+        90: { dx: 1, dy: 0 },      // Este
+        135: { dx: 1, dy: 1 },     // Sureste
+        180: { dx: 0, dy: 1 },     // Sur
+        225: { dx: -1, dy: 1 },    // Suroeste
+        270: { dx: -1, dy: 0 },    // Oeste
+        315: { dx: -1, dy: -1 }    // Noroeste
+    };
+    
+    const dir = directions[navigationDirection];
+    if (!dir) return;
+    
+    const newX = gameState.sector.x + dir.dx * navigationDistance;
+    const newY = gameState.sector.y + dir.dy * navigationDistance;
+    
+    // Verificar límites del grid
+    if (newX < 0 || newX >= GRID_SIZE || newY < 0 || newY >= GRID_SIZE) {
+        console.log('Movimiento fuera de los límites del grid');
+        return;
+    }
+    
+    // Actualizar posición
+    gameState.sector.x = newX;
+    gameState.sector.y = newY;
+    
+    // Actualizar posición del sprite
+    if (shipSprite) {
+        const newSpriteX = GRID_OFFSET_X + newX * CELL_SIZE + CELL_SIZE / 2;
+        const newSpriteY = GRID_OFFSET_Y + newY * CELL_SIZE + CELL_SIZE / 2;
+        shipSprite.setPosition(newSpriteX, newSpriteY);
+    }
+    
+    // Actualizar estado de la nave
+    updateShipStatusDisplay();
+    
+    console.log(`Nave movida a sector [${newX}, ${newY}]`);
+}
+
+function updateShipStatusDisplay() {
+    const shipStatusWindow = windows['shipStatus'];
+    if (shipStatusWindow && shipStatusWindow.contentElements) {
+        const contentText = shipStatusWindow.contentElements[0];
+        updateShipStatusText(contentText, getShipStatusColor(gameState.shipStatus));
+    }
 }
 
 function update() {
