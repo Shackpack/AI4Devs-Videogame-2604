@@ -32,14 +32,16 @@ const gameState = {
 
 // Configuración del grid
 const GRID_SIZE = 8;
-const CELL_SIZE = 35;
+const CELL_SIZE = 17; // Ajustado para caber en la ventana de 180px de altura (8*17=136px)
 const GRID_OFFSET_X = 10;
-const GRID_OFFSET_Y = 40;
+const GRID_OFFSET_Y = 35; // Ajustado para que el grid quepa (35+136=171px < 180px)
 
 // Referencias a objetos del juego
 let shipSprite = null;
 let navigationDirection = 0;
 let navigationDistance = 1;
+let gridElements = []; // Elementos aleatorios en el grid
+let isMoving = false; // Flag para evitar movimientos simultáneos
 
 // Definición de las áreas de ventanas
 const windowDefinitions = {
@@ -59,6 +61,8 @@ function preload() {
     // Cargar assets
     console.log('WinTrek: Cargando assets...');
     this.load.image('player_ship', 'assets/images/player_ship.png');
+    this.load.image('planet', 'assets/images/planet-earth.png');
+    this.load.image('star', 'assets/images/star.png');
 }
 
 function create() {
@@ -197,10 +201,13 @@ function createProximityScannerGrid() {
     const shipY = GRID_OFFSET_Y + gameState.sector.y * CELL_SIZE + CELL_SIZE / 2;
     
     shipSprite = this.add.image(shipX, shipY, 'player_ship')
-        .setScale(0.8)
+        .setScale(0.25) // Escala reducida para caber en la casilla de 17x17
         .setOrigin(0.5);
     
     elements.push(shipSprite);
+    
+    // Agregar elementos aleatorios al grid
+    addRandomGridElements.call(this, elements);
     
     return elements;
 }
@@ -345,6 +352,11 @@ function createNavigationControls() {
 }
 
 function moveShip() {
+    if (isMoving) {
+        console.log('La nave ya se está moviendo');
+        return;
+    }
+    
     const directions = {
         0: { dx: 0, dy: -1 },      // Norte
         45: { dx: 1, dy: -1 },     // Noreste
@@ -359,30 +371,57 @@ function moveShip() {
     const dir = directions[navigationDirection];
     if (!dir) return;
     
-    const newX = gameState.sector.x + dir.dx * navigationDistance;
-    const newY = gameState.sector.y + dir.dy * navigationDistance;
+    isMoving = true;
     
-    // Verificar límites del grid
-    if (newX < 0 || newX >= GRID_SIZE || newY < 0 || newY >= GRID_SIZE) {
-        console.log('Movimiento fuera de los límites del grid');
-        return;
-    }
+    // Movimiento paso a paso
+    let currentStep = 0;
+    const totalSteps = navigationDistance;
     
-    // Actualizar posición
-    gameState.sector.x = newX;
-    gameState.sector.y = newY;
+    const moveStep = () => {
+        if (currentStep >= totalSteps) {
+            isMoving = false;
+            updateShipStatusDisplay();
+            console.log(`Nave movida a sector [${gameState.sector.x}, ${gameState.sector.y}]`);
+            return;
+        }
+        
+        const newX = gameState.sector.x + dir.dx;
+        const newY = gameState.sector.y + dir.dy;
+        
+        // Verificar límites del grid
+        if (newX < 0 || newX >= GRID_SIZE || newY < 0 || newY >= GRID_SIZE) {
+            isMoving = false;
+            console.log('Movimiento fuera de los límites del grid');
+            return;
+        }
+        
+        // Actualizar posición
+        gameState.sector.x = newX;
+        gameState.sector.y = newY;
+        
+        // Animar el movimiento del sprite
+        if (shipSprite) {
+            const newSpriteX = GRID_OFFSET_X + newX * CELL_SIZE + CELL_SIZE / 2;
+            const newSpriteY = GRID_OFFSET_Y + newY * CELL_SIZE + CELL_SIZE / 2;
+            
+            shipSprite.scene.tweens.add({
+                targets: shipSprite,
+                x: newSpriteX,
+                y: newSpriteY,
+                duration: 300, // 300ms por paso
+                ease: 'Linear',
+                onComplete: () => {
+                    currentStep++;
+                    moveStep();
+                }
+            });
+        } else {
+            currentStep++;
+            moveStep();
+        }
+    };
     
-    // Actualizar posición del sprite
-    if (shipSprite) {
-        const newSpriteX = GRID_OFFSET_X + newX * CELL_SIZE + CELL_SIZE / 2;
-        const newSpriteY = GRID_OFFSET_Y + newY * CELL_SIZE + CELL_SIZE / 2;
-        shipSprite.setPosition(newSpriteX, newSpriteY);
-    }
-    
-    // Actualizar estado de la nave
-    updateShipStatusDisplay();
-    
-    console.log(`Nave movida a sector [${newX}, ${newY}]`);
+    moveStep();
 }
 
 function updateShipStatusDisplay() {
@@ -390,6 +429,42 @@ function updateShipStatusDisplay() {
     if (shipStatusWindow && shipStatusWindow.contentElements) {
         const contentText = shipStatusWindow.contentElements[0];
         updateShipStatusText(contentText, getShipStatusColor(gameState.shipStatus));
+    }
+}
+
+function addRandomGridElements(elements) {
+    const randomElements = ['planet', 'star'];
+    const numElements = 2; // Número de elementos aleatorios
+    
+    for (let i = 0; i < numElements; i++) {
+        let x, y;
+        let validPosition = false;
+        
+        // Buscar una posición válida que no sea la posición de la nave
+        while (!validPosition) {
+            x = Phaser.Math.Between(0, GRID_SIZE - 1);
+            y = Phaser.Math.Between(0, GRID_SIZE - 1);
+            
+            // Verificar que no sea la posición de la nave
+            if (x !== gameState.sector.x || y !== gameState.sector.y) {
+                // Verificar que no haya otro elemento en esa posición
+                const occupied = gridElements.some(el => el.gridX === x && el.gridY === y);
+                if (!occupied) {
+                    validPosition = true;
+                }
+            }
+        }
+        
+        const elementX = GRID_OFFSET_X + x * CELL_SIZE + CELL_SIZE / 2;
+        const elementY = GRID_OFFSET_Y + y * CELL_SIZE + CELL_SIZE / 2;
+        
+        const randomType = randomElements[Phaser.Math.Between(0, randomElements.length - 1)];
+        const elementSprite = this.add.image(elementX, elementY, randomType)
+            .setScale(0.2) // Escala reducida para caber en la casilla de 17x17
+            .setOrigin(0.5);
+        
+        gridElements.push({ sprite: elementSprite, gridX: x, gridY: y, type: randomType });
+        elements.push(elementSprite);
     }
 }
 

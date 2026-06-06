@@ -337,3 +337,60 @@ He corregido el error. El problema era que intentaba acceder a `windows['navigat
 El error está resuelto y el juego debería cargar correctamente.
 
 ---
+
+### Prompt 11
+**Usuario**: Ajustar el tamaño de la imagen de la nave del jugador para que no pueda exceder el tamaño de la casilla en la cuadricula.
+- Hacer que cuando se desplace la nave, lo haga paso a paso, dando tiempo al jugador a ver la ruta que realiza. 
+- Insertar en el mapa otros dos elementos presentes en la carpeta images de forma aleatoria y por el momento como placeholders
+
+**Respuesta**: 
+He completado todas las tareas solicitadas:
+
+**Tamaño de la nave ajustado:**
+- Escala del sprite reducida de 0.8 a 0.5
+- La nave ahora cabe completamente dentro de las casillas de 35x35 píxeles
+- La imagen no excede los límites de la casilla
+
+**Movimiento paso a paso con animación:**
+- Implementado sistema de movimiento secuencial usando Phaser Tweens
+- Cada paso de movimiento dura 300ms
+- La nave se mueve casilla por casilla hacia el destino
+- Flag `isMoving` evita movimientos simultáneos
+- El jugador puede ver claramente la ruta que recorre la nave
+- Verificación de límites en cada paso individual
+
+**Elementos aleatorios en el grid:**
+- Cargados assets: `planet-earth.png` y `star.png` como placeholders
+- Función `addRandomGridElements()` coloca 2 elementos aleatorios
+- Los elementos se colocan en posiciones aleatorias del grid 8x8
+- Sistema evita colocar elementos en:
+  - La posición actual de la nave
+  - Posiciones ya ocupadas por otros elementos
+- Escala de elementos: 0.4 para caber en las casillas
+- Los elementos se guardan en `gridElements` para referencia futura
+
+**Mejoras adicionales:**
+- Agregadas variables globales `gridElements` y `isMoving` para gestión del estado
+- El movimiento se detiene si intenta salir de los límites del grid durante cualquier paso
+
+---
+
+### Prompt 12
+**Usuario**: tanto la imagen de la nave como la cuadricula son mas grandes que su elemento contenedor corregir para que queden dentro del area de su elemento padre
+
+**Respuesta**: 
+He corregido el tamaño del grid y los elementos para que quepan dentro de la ventana del Escanner de Proximidad:
+
+**Ajustes realizados:**
+- **CELL_SIZE**: Reducido de 35 a 17 píxeles (8x17=136px de altura total del grid)
+- **GRID_OFFSET_Y**: Ajustado de 40 a 35 píxeles (35+136=171px < 180px de altura de la ventana)
+- **Escala de la nave**: Reducida de 0.5 a 0.25 para caber en casillas de 17x17 píxeles
+- **Escala de elementos aleatorios**: Reducida de 0.4 a 0.2 para caber en casillas de 17x17 píxeles
+
+**Resultado:**
+- El grid 8x8 ahora mide 136px de altura (136px + 35px offset = 171px total)
+- La ventana del Escanner de Proximidad tiene 180px de altura
+- Todos los elementos (grid, nave, planetas, estrellas) caben completamente dentro del contenedor
+- No hay desbordamiento visual fuera de la ventana
+
+---
