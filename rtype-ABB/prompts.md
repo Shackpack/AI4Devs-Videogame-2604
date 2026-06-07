@@ -669,7 +669,116 @@ El método `sound.play()` devuelve un valor booleano, no un objeto de sonido con
 
 ---
 
+### Prompt 23
+**Usuario**: pon como fondo del area de juego el asset 1000_F_243757367_gBpS6R5c8DB7pL5gw9gi9KXlzFfbdZOA.jpg. este asset sera un elemento fijo
+
+**Respuesta**:
+Se implementó la imagen de fondo del área de juego como elemento fijo.
+
+**Modificaciones en main.js**:
+- **preload()**: Añadida carga de la imagen de fondo con `this.load.image('background', 'assets/images/1000_F_243757367_gBpS6R5c8DB7pL5gw9gi9KXlzFfbdZOA.jpg')`
+- **create()**: Reemplazado el rectángulo negro con la imagen de fondo usando `this.add.image(400, 300, 'background').setDisplaySize(800, 600)`
+
+**Resultado**:
+- El área de juego ahora tiene una imagen de fondo espacial
+- La imagen está centrada y escalada al tamaño del juego (800x600)
+- El fondo es un elemento estático que no se mueve durante el juego
+- La imagen se carga durante la fase de preload para asegurar disponibilidad
+
+**Archivos modificados**: `rtype-ABB/main.js`
+
+---
+
 ## Instrucciones Futuras
 A partir de este momento, todos los prompts y sus respuestas se registrarán en este archivo para mantener un historial completo del desarrollo del proyecto.
+
+---
+
+## Conclusiones del Desarrollo
+
+Tras la implementación completa del clon de R-Type, puedo reflexionar sobre cómo ha sido este proceso de desarrollo desde mi perspectiva.
+
+### Enfoque del Proyecto
+
+Este ejercicio tenía un enfoque particular: no se esperaba que yo escribiera código directamente, sino que el modelo de IA tomara todas las decisiones técnicas y de implementación. Mi rol fue el de proporcionar los requisitos y especificaciones a través de prompts, mientras que el modelo se encargaba de toda la resolución técnica. Esta aproximación es interesante porque me ha permitido centrarme en el diseño del juego y en la definición de funcionalidades, dejando la implementación en manos del modelo.
+
+Cabe destacar que el proyecto empezo como un intento de replicar el antiguo juego wintrek para windows 3.11 https://www.youtube.com/watch?v=9PL8OAweZsw, pero dada la complejidad y el tiempo necesario para replicar todas sus funcionalidades, se decidió enfocarse en crear un clon de R-Type que fuera más manejable y que permitiera demostrar las capacidades del modelo de IA.
+Tambien los errores y la inexperiencia con Jupiter 3 no me permitia poder enfocar la raíz del problema y resolverlo de manera efectiva indicandole al modelo donde debia poder el foco de cara a su resolución.
+
+### Selección de Tecnologías
+
+La primera decisión importante fue la elección del framework. El modelo investigó múltiples opciones y recomendó Phaser 3, lo cual resultó ser una buena elección. Phaser 3 proporcionó todas las herramientas necesarias para desarrollar un juego de este tipo: sistema de física, gestión de sprites, colisiones, audio, y un ecosistema amplio con documentación. No tuve que cuestionar esta decisión durante el desarrollo, lo que indica que fue acertada.
+
+### Proceso de Implementación
+
+El desarrollo siguió un enfoque incremental, añadiendo funcionalidades paso a paso:
+
+1. **Configuración inicial**: Estructura del proyecto, carga de Phaser 3
+2. **Jugador**: Movimiento y disparo básico
+3. **Enemigos**: Tres tipos con comportamientos diferenciados
+4. **Sistema de juego**: HP, puntuación, game over, reinicio
+5. **Elementos de curación**: Spacedocks aliados y neutrales
+6. **Audio**: Efectos de sonido y música de fondo
+
+Este enfoque incremental permitió ir probando cada funcionalidad antes de pasar a la siguiente, lo cual es una buena práctica de desarrollo.
+
+### Desafíos y Problemas
+
+La parte más desafiante del proyecto fue la implementación del sistema de colisiones y daño. Hubo múltiples problemas recurrentes:
+
+- El jugador desaparecía al recibir daño
+- Errores con `setVelocityX` cuando el cuerpo físico no estaba disponible
+- Problemas con el sistema de overlap de Phaser afectando la visibilidad
+- El botón de reinicio no funcionaba correctamente
+
+Estos problemas requirieron múltiples iteraciones y correcciones. Lo interesante es que el modelo fue persistente en encontrar soluciones, probando diferentes enfoques: desde verificaciones de seguridad, sistemas de invulnerabilidad, eliminación de efectos visuales, hasta cambiar el sistema de detección de colisiones de overlap a verificación manual de distancia.
+
+Finalmente, el problema se resolvió al identificar que el sistema de colisiones de Phaser estaba afectando la visibilidad del sprite del jugador, y la solución fue implementar una verificación manual de distancia para los disparos enemigos.
+
+### Rol del Modelo vs. Rol Humano
+
+Durante todo el desarrollo, el modelo tomó todas las decisiones técnicas:
+- Selección de framework
+- Implementación de patrones de movimiento
+- Sistema de colisiones
+- Gestión de errores
+- Optimización del código
+
+Mi rol fue el de:
+- Definir los requisitos del juego
+- Probar el juego e identificar problemas
+- Solicitar correcciones cuando algo no funcionaba
+- Añadir nuevas funcionalidades según las especificaciones del proyecto
+
+Esta división de roles funcionó bien para el propósito del ejercicio. Me permitió entender cómo estructurar requisitos y comunicar problemas técnicos sin tener que implementar las soluciones yo mismo.
+
+### Aprendizajes
+
+Aunque no escribí el código directamente, el proceso me ha enseñado:
+
+- La importancia de definir requisitos claros y específicos
+- Hay metodologias mas efectivas que otras. Para prototipado puede ser util este enfoque, pero no para trabajo real
+- Cómo comunicar problemas técnicos de manera efectiva
+- La necesidad de probar iterativamente cada funcionalidad
+- Que los problemas aparentemente simples (como colisiones) pueden tener soluciones complejas
+- La paciencia necesaria para depurar y corregir errores
+
+### Estado Final del Proyecto
+
+El juego final cumple con todos los requisitos especificados:
+- Nave del jugador con movimiento en 4 direcciones
+- Sistema de disparo funcional
+- Tres tipos de enemigos con comportamientos diferenciados
+- Sistema de HP y puntuación
+- Elementos de curación con frecuencias de aparición controladas
+- Audio y música de fondo
+- Sistema de reinicio sin recargar la página
+
+El juego es completamente funcional y jugable, pero no puede alcanzar la calidad de un desarrollo profesional.
+
+### Reflexión sobre la Metodología
+
+Esta metodología de desarrollo, donde el modelo toma todas las decisiones técnicas, es interesante para prototipado rápido y para personas que quieren entender conceptos de desarrollo de juegos sin profundizar en la implementación. Sin embargo, también tiene limitaciones: no desarrolla habilidades de programación directas y crea dependencia del modelo para la resolución de problemas técnicos.
+
 
 ---

@@ -19,6 +19,9 @@ class MainScene extends Phaser.Scene {
         this.load.image('allied_spacedock', 'assets/images/allied-spacedock.png');
         this.load.image('neutral_spacedoc', 'assets/images/neutral_spacedoc.png');
         
+        // Cargar imagen de fondo
+        this.load.image('background', 'assets/images/1000_F_243757367_gBpS6R5c8DB7pL5gw9gi9KXlzFfbdZOA.jpg');
+        
         // Cargar efectos de sonido
         this.load.audio('laser_shot', 'assets/audio/chakong-laser-gun-shot-sound-future-sci-fi-lazer-wobble-chakongaudio-174883.mp3');
         
@@ -29,8 +32,8 @@ class MainScene extends Phaser.Scene {
     }
 
     create() {
-        // Fondo del juego
-        this.add.rectangle(400, 300, 800, 600, 0x000000);
+        // Fondo del juego (imagen fija)
+        this.add.image(400, 300, 'background').setDisplaySize(800, 600);
 
         // Variables del juego
         this.playerHP = 100;

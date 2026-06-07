@@ -123,3 +123,17 @@ El juego utiliza Phaser 3 para el motor de juego y Arcade Physics para las colis
 ## Licencia
 
 Este es un proyecto educativo desarrollado como clon de R-Type.
+Los recursos graficos y de sonido utilizados en el proyecto son a nivel de dominio publico y no me pertenecen en ningun caso.
+
+Las marcas comerciales y logos utilizados en el proyecto pertenecen a sus respectivos dueños.
+
+### Fondo de pantalla:
+https://as2.ftcdn.net/v2/jpg/02/43/75/73/1000_F_243757367_gBpS6R5c8DB7pL5gw9gi9KXlzFfbdZOA.jpg
+
+### Assets de las naves:
+https://icons8.com/icons/
+
+### Assets de sonido:
+Utilizados del sitio 
+https://pixabay.com/es/sound-effects/search/%20space%20shooter/ 
+siendo estos libres de regalias.
