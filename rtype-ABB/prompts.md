@@ -702,8 +702,8 @@ Tras la implementación completa del clon de R-Type, puedo reflexionar sobre có
 
 Este ejercicio tenía un enfoque particular: no se esperaba que yo escribiera código directamente, sino que el modelo de IA tomara todas las decisiones técnicas y de implementación. Mi rol fue el de proporcionar los requisitos y especificaciones a través de prompts, mientras que el modelo se encargaba de toda la resolución técnica. Esta aproximación es interesante porque me ha permitido centrarme en el diseño del juego y en la definición de funcionalidades, dejando la implementación en manos del modelo.
 
-Cabe destacar que el proyecto empezo como un intento de replicar el antiguo juego wintrek para windows 3.11 https://www.youtube.com/watch?v=9PL8OAweZsw, pero dada la complejidad y el tiempo necesario para replicar todas sus funcionalidades, se decidió enfocarse en crear un clon de R-Type que fuera más manejable y que permitiera demostrar las capacidades del modelo de IA.
-Tambien los errores y la inexperiencia con Jupiter 3 no me permitia poder enfocar la raíz del problema y resolverlo de manera efectiva indicandole al modelo donde debia poder el foco de cara a su resolución.
+Cabe destacar que el proyecto empezó como un intento de replicar el antiguo juego wintrek para windows 3.11 https://www.youtube.com/watch?v=9PL8OAweZsw, pero dada la complejidad y el tiempo necesario para replicar todas sus funcionalidades, se decidió enfocarse en crear un clon de R-Type que fuera más manejable y que permitiera demostrar las capacidades del modelo de IA.
+También los errores y la inexperiencia con Phaser 3 no me permitía poder enfocar la raíz del problema y resolverlo de manera efectiva indicándole al modelo donde debía poner el foco de cara a su resolución.
 
 ### Selección de Tecnologías
 
